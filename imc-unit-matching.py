@@ -12,6 +12,7 @@ combine_unit_pattern = re.compile(r"[A-Z]{3,4}\d{3}(?:/[A-Z]{3,4}\d{3})+")
 single_unit_pattern = re.compile(r"[A-Z]{3,4}\d{3}")
 stream_pattern = re.compile(r"Stream\s*(\d+)", re.IGNORECASE)
 
+
 # Campus and Stream detection functions
 def detect_campus(name: str) -> str:
     name = str(name).upper()
@@ -21,9 +22,11 @@ def detect_campus(name: str) -> str:
         return "TAS"
     return "SYD"
 
+
 def detect_stream(name: str) -> str:
     match = stream_pattern.search(name)
     return f"Stream{match.group(1)}" if match else "Stream1"
+
 
 # extract course codes from fullname
 def extract_codes(text: str):
@@ -37,6 +40,7 @@ def extract_codes(text: str):
     match = single_unit_pattern.search(text)
     return [match.group(0)] if match else []
 
+
 def get_campuses(key: str, text: str):
     match = re.search(r"\((SYD|WA|TAS)(?:/(SYD|WA|TAS))*\)", str(text))
     if match:
@@ -49,13 +53,15 @@ def get_campuses(key: str, text: str):
     else:
         return ["SYD"]
 
+
 def get_stream(desc: str):
     if "Class 1" in str(desc):
         return "Stream1"
     elif "Class 2" in str(desc):
         return "Stream2"
     else:
-        return "Stream1"  
+        return "Stream1"
+
 
 # create campus tree structure
 def build_campus_tree(df):
@@ -75,6 +81,7 @@ def build_campus_tree(df):
 
     return campus_tree
 
+
 # create module dictionary from dataframe
 def build_module_dict(df):
     mapping = {}
@@ -84,6 +91,7 @@ def build_module_dict(df):
         if pd.notna(shortname) and pd.notna(fullname):
             mapping[shortname.strip()] = fullname.strip()
     return mapping
+
 
 # generate mapping between timetableIDs and module shortnames
 def generate_mapping(campus_tree, module_dict):
@@ -97,7 +105,7 @@ def generate_mapping(campus_tree, module_dict):
         codes = extract_codes(full_name)
         if not codes:
             continue
-        main_code = codes[0] 
+        main_code = codes[0]
 
         campuses = get_campuses(short_name, full_name)
         stream = get_stream(full_name)
@@ -120,16 +128,17 @@ if __name__ == "__main__":
 
     result = generate_mapping(campus_tree, module_dict)
 
-result_df = pd.DataFrame(list(result.items()), columns=["TimetableID", "module_shortname"])
+result_df = pd.DataFrame(
+    list(result.items()), columns=["TimetableID", "module_shortname"]
+)
 
 # merge with current enrolled modules
 merged_df = pd.merge(df_current, result_df, on="TimetableID", how="inner")
 
 final_df = merged_df[["Email2", "module_shortname"]].copy()
-final_df.rename(columns={
-    "Email2": "email",
-    "module_shortname": "course1"
-}, inplace=True)
+final_df.rename(
+    columns={"Email2": "email", "module_shortname": "course1"}, inplace=True
+)
 
 # additional columns
 final_df["type1"] = 1
