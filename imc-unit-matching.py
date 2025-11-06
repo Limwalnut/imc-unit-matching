@@ -1,11 +1,12 @@
 import pandas as pd
 import re
+from moodle_get_enrolment import get_courseid_by_shortname
 import json
 
 # File paths
-file_path_current_enrolled_modules = "./Current Enrolled Modules 2025 T2.xlsx"
-file_path_unit_creation = "./Unit Creation 2025 T2.xlsx"
-output_path = "./Moodle_Enrol_Mapping_Result_2025_T2.xlsx"
+file_path_current_enrolled_modules = "./files/Current Enrolled Modules 2025 T2.xlsx"
+file_path_unit_creation = "./files/Unit Creation 2025 T2.xlsx"
+output_path = "./result/Moodle_Enrol_Mapping_Result_2025_T2.xlsx"
 
 # Regular expressions for course code extraction
 combine_unit_pattern = re.compile(r"[A-Z]{3,4}\d{3}(?:/[A-Z]{3,4}\d{3})+")
@@ -95,17 +96,16 @@ def build_module_dict(df):
 
 # generate mapping between timetableIDs and module shortnames
 def generate_mapping(campus_tree, module_dict):
-    result = {}
+    result = []
 
     for short_name, full_name in module_dict.items():
         # Ignore if no combined unit pattern found
-        if not combine_unit_pattern.search(str(full_name)):
-            continue
+        # if not combine_unit_pattern.search(str(full_name)):
+        #     continue
 
         codes = extract_codes(full_name)
         if not codes:
             continue
-        main_code = codes[0]
 
         campuses = get_campuses(short_name, full_name)
         stream = get_stream(full_name)
@@ -115,7 +115,13 @@ def generate_mapping(campus_tree, module_dict):
                 continue
             for course_name in campus_tree[campus][stream]:
                 if any(code in course_name for code in codes):
-                    result[course_name] = short_name
+                    course = {
+                        "timetable_id": course_name,
+                        "short_name": short_name,
+                        "course_id": None,
+                    }
+                    course["course_id"] = get_courseid_by_shortname(short_name)
+                    result.append(course)
     return result
 
 
@@ -127,17 +133,20 @@ if __name__ == "__main__":
     module_dict = build_module_dict(df_unit)
 
     result = generate_mapping(campus_tree, module_dict)
+    print(result)
 
-result_df = pd.DataFrame(
-    list(result.items()), columns=["TimetableID", "module_shortname"]
-)
+result_df = pd.DataFrame(result)
+result_df = result_df.rename(columns={
+    "timetable_id": "TimetableID",
+    "short_name": "short_name"
+})
 
 # merge with current enrolled modules
 merged_df = pd.merge(df_current, result_df, on="TimetableID", how="inner")
 
-final_df = merged_df[["Email2", "module_shortname"]].copy()
+final_df = merged_df[["Email2", "short_name",'course_id']].copy()
 final_df.rename(
-    columns={"Email2": "email", "module_shortname": "course1"}, inplace=True
+    columns={"Email2": "email"}, inplace=True
 )
 
 # additional columns
