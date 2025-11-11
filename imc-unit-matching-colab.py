@@ -297,3 +297,26 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"❌ Enrol Failed: {email} ({e})")
         time.sleep(0.2)
+        
+    # ----------------------------
+    # Unenrol users
+    # ----------------------------
+    print("\n🚀 Starting unenrol process...")
+    for item in tqdm(to_unenrol, desc="Unenrolling users"):
+        email = item["email"].lower()
+        userid = user_cache.get(email)
+        if not userid:
+            print(f"⚠️ Skip: user not found for {email}")
+            continue
+
+        unenrol_data = {
+            "enrolments[0][userid]": userid,
+            "enrolments[0][courseid]": item["course_id"],
+        }
+
+        try:
+            moodle_api("enrol_manual_unenrol_users", unenrol_data)
+            print(f"✅ Unenrolled: {email} -> {item['shortname']}")
+        except Exception as e:
+            print(f"❌ Unenrol Failed: {email} ({e})")
+        time.sleep(0.2)
