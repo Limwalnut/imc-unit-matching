@@ -1,24 +1,21 @@
 import pandas as pd
 import re
 from tqdm import tqdm
-from dotenv import load_dotenv
-import os
 import requests
 import time
+import os
+from google.colab import files
 
-# =========================================================
-# ① load environment variables
-# =========================================================
-load_dotenv()
+MOODLE_URL = "https://moodle.imc.edu.au/webservice/rest/server.php"
+MOODLE_TOKEN = "b5d7b3660f6e3b6f1256d2f6edc22855"
 
-MOODLE_URL = os.getenv("MOODLE_URL")
-MOODLE_TOKEN = os.getenv("MOODLE_TOKEN")
+print("Please upload 'Current Enrolled Modules.xlsx' file")
+uploaded = files.upload()
+file_path_current_enrolled_modules = list(uploaded.keys())[0]
 
-# =========================================================
-# ② file paths
-# =========================================================
-file_path_current_enrolled_modules = "./files/Current Enrolled Modules T3.xlsx"
-file_path_unit_creation = "./files/Unit Creation 2025 T3.xlsx"
+print("Please upload 'Unit Creation.xlsx' file")
+uploaded = files.upload()
+file_path_unit_creation = list(uploaded.keys())[0]
 
 # =========================================================
 # ③ regex patterns
@@ -236,8 +233,8 @@ if __name__ == "__main__":
     print(f"✅ To Unenrol: {len(to_unenrol)} records")
 
     os.makedirs("result", exist_ok=True)
-    pd.DataFrame(to_enrol).to_excel("./result/to_enrol.xlsx", index=False)
-    pd.DataFrame(to_unenrol).to_excel("./result/to_unenrol.xlsx", index=False)
+    pd.DataFrame(to_enrol).to_excel("result/to_enrol.xlsx", index=False)
+    pd.DataFrame(to_unenrol).to_excel("result/to_unenrol.xlsx", index=False)
     print("💾 Save to_enrol.xlsx and to_unenrol.xlsx")
 
     # =========================================================
@@ -274,53 +271,29 @@ if __name__ == "__main__":
     
     all_emails = list({i["email"].lower() for i in to_enrol + to_unenrol})
     user_cache = fetch_user_ids_bulk(all_emails)
-    print(user_cache)
     
     # ----------------------------
     # Enrol users
     # ----------------------------
     STUDENT_ROLE_ID = 5  # Student role is 5
 
-    # print("\n🚀 Starting enrol process...")
-    # for item in tqdm(to_enrol, desc="Enrolling users"):
-    #     email = item["email"].lower()
-    #     userid = user_cache.get(email)
-    #     if not userid:
-    #         print(f"⚠️ Skip: user not found for {email}")
-    #         continue
+    print("\n🚀 Starting enrol process...")
+    for item in tqdm(to_enrol, desc="Enrolling users"):
+        email = item["email"].lower()
+        userid = user_cache.get(email)
+        if not userid:
+            print(f"⚠️ Skip: user not found for {email}")
+            continue
 
-    #     enrol_data = {
-    #         "enrolments[0][roleid]": STUDENT_ROLE_ID,
-    #         "enrolments[0][userid]": userid,
-    #         "enrolments[0][courseid]": item["course_id"],
-    #     }
+        enrol_data = {
+            "enrolments[0][roleid]": STUDENT_ROLE_ID,
+            "enrolments[0][userid]": userid,
+            "enrolments[0][courseid]": item["course_id"],
+        }
 
-    #     try:
-    #         moodle_api("enrol_manual_enrol_users", enrol_data)
-    #         print(f"✅ Enrolled: {email} -> {item['shortname']}")
-    #     except Exception as e:
-    #         print(f"❌ Enrol Failed: {email} ({e})")
-    #     time.sleep(0.2)
-
-    # ----------------------------
-    # Unenrol users
-    # ----------------------------
-    # print("\n🚀 Starting unenrol process...")
-    # for item in tqdm(to_unenrol, desc="Unenrolling users"):
-    #     email = item["email"].lower()
-    #     userid = user_cache.get(email)
-    #     if not userid:
-    #         print(f"⚠️ Skip: user not found for {email}")
-    #         continue
-
-    #     unenrol_data = {
-    #         "enrolments[0][userid]": userid,
-    #         "enrolments[0][courseid]": item["course_id"],
-    #     }
-
-    #     try:
-    #         moodle_api("enrol_manual_unenrol_users", unenrol_data)
-    #         print(f"✅ Unenrolled: {email} -> {item['shortname']}")
-    #     except Exception as e:
-    #         print(f"❌ Unenrol Failed: {email} ({e})")
-    #     time.sleep(0.2)
+        try:
+            moodle_api("enrol_manual_enrol_users", enrol_data)
+            print(f"✅ Enrolled: {email} -> {item['shortname']}")
+        except Exception as e:
+            print(f"❌ Enrol Failed: {email} ({e})")
+        time.sleep(0.2)
